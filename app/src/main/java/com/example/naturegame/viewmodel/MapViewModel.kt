@@ -1,36 +1,33 @@
 package com.example.naturegame.viewmodel
 
-import android.app.Application
 import android.location.Location
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.naturegame.data.local.AppDatabase
 import com.example.naturegame.data.local.entity.NatureSpot
+import com.example.naturegame.data.repository.NatureSpotRepository
 import com.example.naturegame.location.LocationManager
-import org.osmdroid.util.GeoPoint
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import org.osmdroid.util.GeoPoint
+import javax.inject.Inject
 
-// AndroidViewModel saa Application-kontekstin — tarvitaan LocationManagerille
-class MapViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class MapViewModel @Inject constructor(
+    private val repository: NatureSpotRepository,
+    private val locationManager: LocationManager
+) : ViewModel() {
 
-    // LocationManager-instanssi — käyttää Applicationin kontekstia
-    private val locationManager = LocationManager(application)
-    private val db = AppDatabase.getDatabase(application)
-
-    // Delegoidaan StateFlowt suoraan LocationManagerilta
     val routePoints: StateFlow<List<GeoPoint>> = locationManager.routePoints
     val currentLocation: StateFlow<Location?> = locationManager.currentLocation
 
-    // Luontokohteet kartalla
     private val _natureSpots = MutableStateFlow<List<NatureSpot>>(emptyList())
     val natureSpots: StateFlow<List<NatureSpot>> = _natureSpots.asStateFlow()
 
     init {
-        // Lataa luontokohteet heti kun ViewModel luodaan
         loadNatureSpots()
     }
 
@@ -40,21 +37,19 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadNatureSpots() {
         viewModelScope.launch {
-            db.natureSpotDao().getSpotsWithLocation().collectLatest { spots ->
+            repository.allSpots.collectLatest { spots ->
                 _natureSpots.value = spots
             }
         }
     }
 
-
     override fun onCleared() {
         super.onCleared()
-        // Pysäytä sijainnin seuranta kun ViewModel tuhotaan
         locationManager.stopTracking()
     }
 }
 
-// Apufunktio: muuntaa Long-aikaleiman luettavaksi merkkijonoksi
+// Helper for formatting timestamps
 fun Long.toFormattedDate(): String {
     val sdf = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm", java.util.Locale.getDefault())
     return sdf.format(java.util.Date(this))

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.naturegame.data.profile.ProfileRepository
 import com.example.naturegame.data.remote.firebase.AuthManager
+import com.example.naturegame.data.repository.WalkRepository
 import com.google.firebase.auth.FirebaseUser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -12,11 +13,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.flow.map
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val repository: ProfileRepository,
-    private val authManager: AuthManager
+    private val authManager: AuthManager,
+    private val walkRepository: WalkRepository,
 ) : ViewModel() {
 
     private val _currentUser = MutableStateFlow<FirebaseUser?>(authManager.currentUser)
@@ -50,11 +52,24 @@ class ProfileViewModel @Inject constructor(
             ""
         )
 
-    val profileSteps: StateFlow<Int> =
-        repository.profileSteps.stateIn(
+    val totalSteps = walkRepository.getAllSessions()
+        .map { sessions ->
+            sessions.sumOf { it.stepCount }
+        }
+        .stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5000),
             0
+        )
+
+    val totalDistance = walkRepository.getAllSessions()
+        .map { sessions ->
+            sessions.sumOf { it.distanceMeters.toDouble() }.toFloat()
+        }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            0f
         )
 
     val findingsCount: StateFlow<Int> =
@@ -76,9 +91,4 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun updateSteps(steps: Int) {
-        viewModelScope.launch {
-            repository.updateSteps(steps)
-        }
-    }
 }

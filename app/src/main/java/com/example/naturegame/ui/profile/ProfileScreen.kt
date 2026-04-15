@@ -22,18 +22,21 @@ import com.example.naturegame.viewmodel.ProfileViewModel
 @Composable
 fun ProfileScreen() {
 
-    // Hilt-provided ViewModel
     val viewModel: ProfileViewModel = hiltViewModel()
 
     // Collect state
     val name by viewModel.profileName.collectAsState()
     val pictureUri by viewModel.profilePictureUri.collectAsState()
-    val steps by viewModel.profileSteps.collectAsState()
+    val steps by viewModel.totalSteps.collectAsState()
     val findings by viewModel.findingsCount.collectAsState()
 
     // Dialog state
     var showNameDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf(name) }
+
+    // distance
+    val distanceMeters by viewModel.totalDistance.collectAsState()
+    val distanceKm = distanceMeters / 1000f
 
     // Image picker
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -99,13 +102,14 @@ fun ProfileScreen() {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Stats row
+        // Stats row (NO calories anymore)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             StatItem(steps.toString(), "Steps")
             StatItem(findings.toString(), "Discoveries")
+            StatItem(String.format("%.2f km", distanceKm), "Distance")
         }
     }
 

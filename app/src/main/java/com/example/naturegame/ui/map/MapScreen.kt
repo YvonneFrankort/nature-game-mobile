@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.naturegame.viewmodel.CameraViewModel
 import com.example.naturegame.viewmodel.MapViewModel
 import com.example.naturegame.viewmodel.WalkViewModel
 import com.example.naturegame.viewmodel.ProfileViewModel
@@ -21,30 +20,28 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.core.content.ContextCompat
 import com.example.naturegame.utils.getCategoryColorHex
 import com.example.naturegame.utils.getTintedDefaultMarker
 import com.example.naturegame.utils.scaleDrawable
 import com.example.naturegame.data.local.entity.NatureSpot
+import com.example.naturegame.R
 
 @Composable
 fun MapScreen(
-    mapViewModel: MapViewModel = viewModel(),
+    mapViewModel: MapViewModel = hiltViewModel(),
     walkViewModel: WalkViewModel = viewModel(),
-    cameraViewModel: CameraViewModel = viewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
 
-    // Permissions
     LocationAndActivityPermissions(onAllGranted = {})
 
-    // State
     val isWalking by walkViewModel.isWalking.collectAsState()
     val routePoints by mapViewModel.routePoints.collectAsState()
     val currentLocation by mapViewModel.currentLocation.collectAsState()
     val natureSpots by mapViewModel.natureSpots.collectAsState()
 
-    // Start/stop GPS tracking
     LaunchedEffect(isWalking) {
         if (isWalking) {
             mapViewModel.resetRoute()
@@ -56,7 +53,6 @@ fun MapScreen(
 
     val defaultPosition = GeoPoint(65.0121, 25.4651)
 
-    // Required for osmdroid
     LaunchedEffect(Unit) {
         Configuration.getInstance().userAgentValue = context.packageName
     }
@@ -66,7 +62,6 @@ fun MapScreen(
         Box(modifier = Modifier.weight(1f)) {
 
             val mapViewState = remember { MapView(context) }
-
             var selectedSpot by remember { mutableStateOf<NatureSpot?>(null) }
 
             LaunchedEffect(natureSpots) {
@@ -79,7 +74,6 @@ fun MapScreen(
                 }
             }
 
-            // Initialize MapView once
             DisposableEffect(Unit) {
                 mapViewState.setTileSource(TileSourceFactory.MAPNIK)
                 mapViewState.setMultiTouchControls(true)
@@ -91,6 +85,7 @@ fun MapScreen(
                 onDispose { mapViewState.onDetach() }
             }
 
+            // ⭐ NO KEY() — this restores the original working behavior
             AndroidView(
                 factory = { mapViewState },
                 modifier = Modifier.fillMaxSize(),
@@ -120,11 +115,13 @@ fun MapScreen(
                             val colorHex = getCategoryColorHex(spot.plantLabel ?: "unknown")
                             val tintedIcon = getTintedDefaultMarker(context, colorHex)
 
-                            if (tintedIcon != null) {
-                                val zoom = mapView.zoomLevelDouble.toFloat()
-                                val scale = (zoom / 15f).coerceIn(1f, 3f)   // zoom-based scaling
-                                icon = scaleDrawable(tintedIcon, scale)
-                            }
+                            val safeIcon = tintedIcon
+                                ?: mapView.context.getDrawable(org.osmdroid.library.R.drawable.marker_default)!!
+
+                            val zoom = mapView.zoomLevelDouble.toFloat()
+                            val scale = (zoom / 5f).coerceIn(1.5f, 6f)
+                            icon = scaleDrawable(safeIcon, scale)
+
                             setOnMarkerClickListener { _, _ ->
                                 selectedSpot = spot
                                 true
@@ -134,11 +131,8 @@ fun MapScreen(
                         mapView.overlays.add(marker)
                     }
 
-                    // Update CameraViewModel with GPS coordinates
+                    // ⭐ Old behavior restored — this worked before
                     currentLocation?.let { loc ->
-                        cameraViewModel.currentLatitude = loc.latitude
-                        cameraViewModel.currentLongitude = loc.longitude
-
                         mapView.controller.animateTo(
                             GeoPoint(loc.latitude, loc.longitude),
                             16.0,

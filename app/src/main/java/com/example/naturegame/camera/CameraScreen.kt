@@ -9,7 +9,6 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Camera
@@ -24,27 +23,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.naturegame.location.LocationManager
 import com.example.naturegame.viewmodel.CameraViewModel
 
 @Composable
 fun CameraScreen(
-    cameraViewModel: CameraViewModel,
-    locationManager: LocationManager
+    cameraViewModel: CameraViewModel
 ) {
-
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // Listen to GPS updates and forward them to the ViewModel
-    val location by locationManager.currentLocation.collectAsState()
-
-    LaunchedEffect(location) {
-        location?.let {
-            cameraViewModel.updateLocation(it.latitude, it.longitude)
-        }
+    // Start GPS tracking when entering the screen, via ViewModel's injected LocationManager
+    LaunchedEffect(Unit) {
+        cameraViewModel.locationManager.startTracking()
     }
-
 
     val viewModel = cameraViewModel
 
@@ -76,7 +67,6 @@ fun CameraScreen(
         if (!hasPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
 
-    // If permission missing → show UI
     if (!hasPermission) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -116,7 +106,6 @@ fun CameraScreen(
         } catch (_: Exception) {}
     }
 
-    // UI
     Box(Modifier.fillMaxSize()) {
 
         if (capturedImagePath == null) {
@@ -127,7 +116,9 @@ fun CameraScreen(
             )
 
             Box(
-                Modifier.fillMaxSize().padding(32.dp),
+                Modifier
+                    .fillMaxSize()
+                    .padding(32.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 FloatingActionButton(
@@ -149,7 +140,6 @@ fun CameraScreen(
             val note by viewModel.currentNote.collectAsState()
             val classificationResult by viewModel.classificationResult.collectAsState()
 
-            // Only CapturedImageView now — classification is inside it
             CapturedImageView(
                 imagePath = capturedImagePath!!,
                 note = note,

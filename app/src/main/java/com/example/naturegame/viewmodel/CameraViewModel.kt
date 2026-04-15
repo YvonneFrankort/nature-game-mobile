@@ -8,11 +8,13 @@ import androidx.camera.core.ImageCaptureException
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.naturegame.data.local.AppDatabase
 import com.example.naturegame.data.local.entity.NatureSpot
 import com.example.naturegame.data.repository.NatureSpotRepository
+import com.example.naturegame.location.LocationManager
 import com.example.naturegame.ml.ClassificationResult
 import com.example.naturegame.ml.PlantClassifier
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,21 +23,14 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
-import com.example.naturegame.data.remote.firebase.FirestoreManager
-import com.example.naturegame.data.remote.firebase.StorageManager
-import com.example.naturegame.data.remote.firebase.AuthManager
+import java.util.UUID
 
-class CameraViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val repository = NatureSpotRepository(
-        dao = AppDatabase.getDatabase(application).natureSpotDao(),
-        firestoreManager = FirestoreManager(),
-        storageManager = StorageManager(),
-        authManager = AuthManager()
-    )
-
-
+@HiltViewModel
+class CameraViewModel @Inject constructor(
+    application: Application,
+    private val repository: NatureSpotRepository,
+    val locationManager: LocationManager
+) : AndroidViewModel(application) {
 
     private val classifier = PlantClassifier()
 
@@ -48,11 +43,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private val _classificationResult = MutableStateFlow<ClassificationResult?>(null)
     val classificationResult: StateFlow<ClassificationResult?> = _classificationResult.asStateFlow()
 
-    var currentLatitude: Double = 0.0
-    var currentLongitude: Double = 0.0
-
     var currentNote = MutableStateFlow("")
-
 
     // -----------------------------
     //  Take photo + classify
@@ -87,7 +78,7 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
     private suspend fun takePhotoSuspend(
         context: Context,
         imageCapture: ImageCapture
-    ): String? = kotlinx.coroutines.suspendCancellableCoroutine<String?> { continuation ->
+    ): String? = kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
 
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val outputDir = File(context.filesDir, "nature_photos").also { it.mkdirs() }
@@ -127,32 +118,44 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
 
             val result = _classificationResult.value
 
-            // 1. Create the base spot so we have its ID
+            // Get the latest location from LocationManager
+            val loc = locationManager.currentLocation.value
+            val lat = loc?.latitude ?: 0.0
+            val lon = loc?.longitude ?: 0.0
+
             val baseSpot = NatureSpot(
+                id = UUID.randomUUID().toString(),
                 name = when (result) {
                     is ClassificationResult.Success -> result.category
                     else -> "Nature spot"
                 },
-                latitude = currentLatitude,
-                longitude = currentLongitude,
+                latitude = lat,
+                longitude = lon,
+
                 imageLocalPath = imagePath,
+                imageFirebaseUrl = null,
+
                 plantLabel = (result as? ClassificationResult.Success)?.category,
                 confidence = (result as? ClassificationResult.Success)?.confidence,
+
+                note = currentNote.value,
+
                 userId = repository.getCurrentUserId(),
-                note = currentNote.value
+                timestamp = System.currentTimeMillis(),
+
+                synced = false
             )
 
-            // 2. Upload image using the spot ID
+
+
             val firebaseUrl = try {
                 repository.uploadImageToFirebase(imagePath, baseSpot.id)
             } catch (e: Exception) {
                 null
             }
 
-            // 3. Create final spot with Firebase URL
             val finalSpot = baseSpot.copy(imageFirebaseUrl = firebaseUrl)
 
-            // 4. Save to Room + Firestore
             repository.insertSpot(finalSpot)
 
             android.widget.Toast.makeText(context, "Spot saved", android.widget.Toast.LENGTH_SHORT).show()
@@ -160,11 +163,6 @@ class CameraViewModel(application: Application) : AndroidViewModel(application) 
             clearCapturedImage()
             _isLoading.value = false
         }
-    }
-
-    fun updateLocation(lat: Double, lon: Double) {
-        currentLatitude = lat
-        currentLongitude = lon
     }
 
     override fun onCleared() {

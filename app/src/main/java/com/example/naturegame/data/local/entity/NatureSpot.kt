@@ -2,30 +2,31 @@ package com.example.naturegame.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-// NatureSpot = yksi löydetty luontokohde
-// Jokainen kuvattu kasvi/luontokohde tallennetaan omana rivinä
 @Entity(tableName = "nature_spots")
 data class NatureSpot(
-    // UUID pääavaimena (globaalisti uniikki, sopii myös Firestoreen)
-    @PrimaryKey val id: String = UUID.randomUUID().toString(),
+    @PrimaryKey val id: String,
 
-    val name: String,                        // Käyttäjän antama nimi tai automaattinen
-    val latitude: Double,                    // GPS-koordinaatti
-    val longitude: Double,                   // GPS-koordinaatti
+    val name: String,
+    val latitude: Double,
+    val longitude: Double,
 
-    val imageLocalPath: String? = null,      // Polku laitteen tiedostoon
-    val imageFirebaseUrl: String? = null,    // Firebase Storage URL (lisätään viikolla 6)
+    val imageLocalPath: String? = null,
+    val imageFirebaseUrl: String? = null,
 
-    val plantLabel: String? = null,          // ML Kitin tunnistama kasvilaji (viikko 5)
-    val confidence: Float? = null, // Tunnistuksen varmuus 0-1
+    val plantLabel: String? = null,
+    val confidence: Float? = null,
 
     val note: String? = null,
 
-    val userId: String? = null,              // Firebase Auth UID (viikko 6)
+    val userId: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
 
-    // synced = false kun vain paikallinen, true kun synkronoitu Firestoreen
-    val synced: Boolean = false
+    val synced: Boolean = false,
+
+    val readableDate: String = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+        .format(Date())
 )

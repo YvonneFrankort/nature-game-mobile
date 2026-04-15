@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.naturegame.data.local.AppDatabase
 import com.example.naturegame.data.local.dao.NatureSpotDao
+import com.example.naturegame.data.local.dao.WalkSessionDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -23,7 +24,7 @@ object RoomModule {
         Room.databaseBuilder(
             context,
             AppDatabase::class.java,
-            "luontopeli_database"   // <-- FIXED
+            "luontopeli_database"
         )
             .fallbackToDestructiveMigration()
             .build()
@@ -32,4 +33,9 @@ object RoomModule {
     @Singleton
     fun provideNatureSpotDao(db: AppDatabase): NatureSpotDao =
         db.natureSpotDao()
+
+    @Provides
+    @Singleton
+    fun provideWalkSessionDao(db: AppDatabase): WalkSessionDao =
+        db.walkSessionDao()
 }

@@ -72,7 +72,6 @@ fun WalkStatsCard(
                     OutlinedButton(
                         onClick = {
                             viewModel.stopWalk { session ->
-                                profileViewModel.updateSteps(session.stepCount)
                             }
 
                         },

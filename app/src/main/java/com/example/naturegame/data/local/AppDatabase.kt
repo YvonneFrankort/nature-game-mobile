@@ -14,7 +14,7 @@ import com.example.naturegame.data.local.dao.WalkSessionDao
         NatureSpot::class,
         WalkSession::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
